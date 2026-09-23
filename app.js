@@ -20,11 +20,11 @@ function showToast(message) {
 toast.textContent = message;
 toast.style.display = "block";
 
-```
+
 setTimeout(() => {
     toast.style.display = "none";
 }, 3000);
-```
+
 
 }
 
@@ -44,7 +44,7 @@ publishModal.classList.add("hidden");
 
 async function loadPlugins() {
 
-```
+
 pluginsElement.innerHTML =
     '<div class="loading">Carregando plugins...</div>';
 
@@ -67,13 +67,12 @@ if (error) {
 allPlugins = data || [];
 
 renderPlugins(allPlugins);
-```
+
 
 }
 
 function renderPlugins(list) {
 
-```
 countElement.textContent =
     `${list.length} plugin${list.length === 1 ? "" : "s"}`;
 
@@ -120,13 +119,13 @@ list.forEach(plugin => {
 
     pluginsElement.appendChild(card);
 });
-```
+
 
 }
 
 async function installPlugin(filePath, fileName, button) {
 
-```
+
 const oldText = button.textContent;
 
 button.disabled = true;
@@ -181,13 +180,13 @@ try {
     button.disabled = false;
     button.textContent = oldText;
 }
-```
+
 
 }
 
 searchInput.addEventListener("input", function () {
 
-```
+
 const query =
     searchInput.value
         .trim()
@@ -214,13 +213,13 @@ const filtered =
     });
 
 renderPlugins(filtered);
-```
+
 
 });
 
 pluginForm.addEventListener("submit", async function (event) {
 
-```
+
 event.preventDefault();
 
 const name =
@@ -342,7 +341,7 @@ try {
     submitButton.disabled = false;
     submitButton.textContent = "Publicar";
 }
-```
+
 
 });
 
