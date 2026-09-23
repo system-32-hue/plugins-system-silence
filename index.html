@@ -1,61 +1,87 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Silence Plugins</title>
+    <title>System Silence Plugin Store</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-    <div class="brand">
-        <div class="logo">SS</div>
-        <div>
-            <h1>System Silence</h1>
-            <span>Plugin Store</span>
-        </div>
+    <div class="logo">SS</div>
+    <div>
+        <h1>System Silence</h1>
+        <span>Plugin Store</span>
     </div>
-
-    <a
-        class="github"
-        href="https://github.com/system-32-hue/System-silence"
-        target="_blank"
-        rel="noopener"
-    >
-        GitHub
-    </a>
 </header>
 
 <main>
-    <section class="hero">
-        <div class="badge">PLUGIN STORE</div>
 
-        <h2>Plugins para<br>System Silence</h2>
+```
+<section class="hero">
+    <h2>Plugins da comunidade</h2>
+    <p>Publique e baixe plugins JavaScript para o System Silence.</p>
 
-        <p>
-            Encontre, baixe e publique plugins JavaScript
-            para o System Silence.
-        </p>
+    <button id="publishButton">+ Publicar plugin</button>
+</section>
 
-        <input
-            id="search"
-            type="search"
-            placeholder="Pesquisar plugins..."
-            autocomplete="off"
-        >
-    </section>
+<section class="search">
+    <input id="search" type="text" placeholder="Pesquisar plugin...">
+</section>
 
-    <section class="catalog">
-        <div id="count" class="count"></div>
-        <div id="plugins" class="grid"></div>
-    </section>
+<section>
+    <div class="titleRow">
+        <h2>Plugins</h2>
+        <span id="count">0 plugins</span>
+    </div>
+
+    <div id="plugins" class="plugins">
+        <div class="loading">Carregando plugins...</div>
+    </div>
+</section>
+```
+
 </main>
 
-<footer>
-    <span>System Silence Plugin Store</span>
-    <span>Powered by GitHub Pages</span>
-</footer>
+<div id="publishModal" class="modal hidden">
+
+```
+<div class="modalBox">
+
+    <button id="closeModal" class="close">×</button>
+
+    <h2>Publicar plugin</h2>
+
+    <form id="pluginForm">
+
+        <label>Nome</label>
+        <input id="pluginName" required maxlength="80">
+
+        <label>Descrição</label>
+        <textarea id="pluginDescription" required maxlength="500"></textarea>
+
+        <label>Versão</label>
+        <input id="pluginVersion" value="1.0.0" required>
+
+        <label>Arquivo .js</label>
+        <input id="pluginFile" type="file" accept=".js" required>
+
+        <button id="submitButton" class="publish" type="submit">
+            Publicar
+        </button>
+
+    </form>
+
+</div>
+```
+
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script src="app.js"></script>
 
