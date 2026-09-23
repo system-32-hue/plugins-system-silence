@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -11,127 +10,205 @@
 
 <header>
     <div class="logo">SS</div>
+
     <div>
         <h1>System Silence</h1>
         <span>Plugin Store</span>
+    </div>
+
+    <div class="account">
+        <span id="userEmail"></span>
+
+        <button id="loginButton">
+            Login
+        </button>
+
+        <button id="logoutButton" class="hidden">
+            Sair
+        </button>
     </div>
 </header>
 
 <main>
 
+    <section class="hero">
+        <h2>Plugins da comunidade</h2>
 
-<section class="hero">
-    <h2>Plugins da comunidade</h2>
-    <p>Publique e instale plugins para o System Silence.</p>
+        <p>
+            Publique e instale plugins para o System Silence.
+        </p>
 
-    <button id="publishButton">
-        + Publicar plugin
-    </button>
-</section>
+        <button id="publishButton">
+            + Publicar plugin
+        </button>
+    </section>
 
-<section class="search">
-    <input
-        id="search"
-        type="search"
-        placeholder="Pesquisar plugins..."
-    >
-</section>
+    <section class="search">
+        <input
+            id="search"
+            type="search"
+            placeholder="Pesquisar plugins..."
+        >
+    </section>
 
-<section>
-    <div class="titleRow">
-        <h2>Plugins</h2>
-        <span id="count">0 plugins</span>
-    </div>
+    <section>
 
-    <div id="plugins" class="plugins">
-        <div class="loading">
-            Carregando plugins...
+        <div class="titleRow">
+            <h2>Plugins</h2>
+            <span id="count">0 plugins</span>
         </div>
-    </div>
-</section>
 
+        <div id="plugins" class="plugins">
+
+            <div class="loading">
+                Carregando plugins...
+            </div>
+
+        </div>
+
+    </section>
 
 </main>
 
-<div id="publishModal" class="modal hidden">
+<div id="loginModal" class="modal hidden">
 
-
-<div class="modalBox">
-
-    <button
-        id="closeModal"
-        class="close"
-        type="button"
-    >
-        ×
-    </button>
-
-    <h2>Publicar plugin</h2>
-
-    <form id="pluginForm">
-
-        <label for="pluginName">
-            Nome
-        </label>
-
-        <input
-            id="pluginName"
-            type="text"
-            maxlength="80"
-            required
-        >
-
-        <label for="pluginDescription">
-            Descrição
-        </label>
-
-        <textarea
-            id="pluginDescription"
-            maxlength="500"
-            required
-        ></textarea>
-
-        <label for="pluginVersion">
-            Versão
-        </label>
-
-        <input
-            id="pluginVersion"
-            type="text"
-            value="1.0.0"
-            required
-        >
-
-        <label for="pluginFile">
-            Arquivo JavaScript
-        </label>
-
-        <input
-            id="pluginFile"
-            type="file"
-            accept=".js"
-            required
-        >
+    <div class="modalBox">
 
         <button
-            id="submitButton"
-            class="publish"
-            type="submit"
+            id="closeLogin"
+            class="close"
+            type="button"
         >
-            Publicar
+            ×
         </button>
 
-    </form>
+        <h2 id="authTitle">
+            Login
+        </h2>
+
+        <form id="authForm">
+
+            <label for="authEmail">
+                Email
+            </label>
+
+            <input
+                id="authEmail"
+                type="email"
+                required
+            >
+
+            <label for="authPassword">
+                Senha
+            </label>
+
+            <input
+                id="authPassword"
+                type="password"
+                minlength="6"
+                required
+            >
+
+            <button
+                id="authSubmit"
+                class="publish"
+                type="submit"
+            >
+                Entrar
+            </button>
+
+        </form>
+
+        <button
+            id="switchAuth"
+            class="switchAuth"
+            type="button"
+        >
+            Criar conta
+        </button>
+
+    </div>
 
 </div>
 
+<div id="publishModal" class="modal hidden">
+
+    <div class="modalBox">
+
+        <button
+            id="closeModal"
+            class="close"
+            type="button"
+        >
+            ×
+        </button>
+
+        <h2>
+            Publicar plugin
+        </h2>
+
+        <form id="pluginForm">
+
+            <label for="pluginName">
+                Nome
+            </label>
+
+            <input
+                id="pluginName"
+                type="text"
+                maxlength="80"
+                required
+            >
+
+            <label for="pluginDescription">
+                Descrição
+            </label>
+
+            <textarea
+                id="pluginDescription"
+                maxlength="500"
+                required
+            ></textarea>
+
+            <label for="pluginVersion">
+                Versão
+            </label>
+
+            <input
+                id="pluginVersion"
+                type="text"
+                value="1.0.0"
+                required
+            >
+
+            <label for="pluginFile">
+                Arquivo JavaScript
+            </label>
+
+            <input
+                id="pluginFile"
+                type="file"
+                accept=".js"
+                required
+            >
+
+            <button
+                id="submitButton"
+                class="publish"
+                type="submit"
+            >
+                Publicar
+            </button>
+
+        </form>
+
+    </div>
 
 </div>
 
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script src="app.js"></script>
 
 </body>
