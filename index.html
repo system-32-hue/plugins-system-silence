@@ -19,11 +19,11 @@
     <div class="account">
         <span id="userEmail"></span>
 
-        <button id="loginButton">
+        <button id="loginButton" type="button">
             Login
         </button>
 
-        <button id="logoutButton" class="hidden">
+        <button id="logoutButton" type="button" class="hidden">
             Sair
         </button>
     </div>
@@ -31,47 +31,43 @@
 
 <main>
 
-    <section class="hero">
-        <h2>Plugins da comunidade</h2>
+<section class="hero">
+    <h2>Plugins da comunidade</h2>
 
-        <p>
-            Publique e instale plugins para o System Silence.
-        </p>
+    <p>
+        Publique e instale plugins para o System Silence.
+    </p>
 
-        <button id="publishButton">
-            + Publicar plugin
-        </button>
-    </section>
+    <button id="publishButton" type="button">
+        + Publicar plugin
+    </button>
+</section>
 
-    <section class="search">
-        <input
-            id="search"
-            type="search"
-            placeholder="Pesquisar plugins..."
-        >
-    </section>
+<section class="search">
+    <input
+        id="search"
+        type="search"
+        placeholder="Pesquisar plugins..."
+        autocomplete="off"
+    >
+</section>
 
-    <section>
+<section>
+    <div class="titleRow">
+        <h2>Plugins</h2>
+        <span id="count">0 plugins</span>
+    </div>
 
-        <div class="titleRow">
-            <h2>Plugins</h2>
-            <span id="count">0 plugins</span>
+    <div id="plugins" class="plugins">
+        <div class="loading">
+            Carregando plugins...
         </div>
-
-        <div id="plugins" class="plugins">
-
-            <div class="loading">
-                Carregando plugins...
-            </div>
-
-        </div>
-
-    </section>
+    </div>
+</section>
 
 </main>
 
 <div id="loginModal" class="modal hidden">
-
     <div class="modalBox">
 
         <button
@@ -82,9 +78,7 @@
             ×
         </button>
 
-        <h2 id="authTitle">
-            Login
-        </h2>
+        <h2 id="authTitle">Login</h2>
 
         <form id="authForm">
 
@@ -95,6 +89,7 @@
             <input
                 id="authEmail"
                 type="email"
+                autocomplete="email"
                 required
             >
 
@@ -105,6 +100,7 @@
             <input
                 id="authPassword"
                 type="password"
+                autocomplete="current-password"
                 minlength="6"
                 required
             >
@@ -124,15 +120,13 @@
             class="switchAuth"
             type="button"
         >
-            Criar conta
+            Criar uma conta
         </button>
 
     </div>
-
 </div>
 
 <div id="publishModal" class="modal hidden">
-
     <div class="modalBox">
 
         <button
@@ -143,9 +137,7 @@
             ×
         </button>
 
-        <h2>
-            Publicar plugin
-        </h2>
+        <h2>Publicar plugin</h2>
 
         <form id="pluginForm">
 
@@ -203,12 +195,10 @@
         </form>
 
     </div>
-
 </div>
 
 <div id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
 
 </body>
