@@ -57,7 +57,8 @@ return String(value)
 async function loadPlugins() {
 
 ```
-pluginsElement.innerHTML = '<div class="loading">Carregando plugins...</div>';
+pluginsElement.innerHTML =
+    '<div class="loading">Carregando plugins...</div>';
 
 const { data, error } = await db
     .from("plugins")
@@ -67,10 +68,12 @@ const { data, error } = await db
     });
 
 if (error) {
-    pluginsElement.innerHTML =
-        "<div class='loading'>Erro ao carregar plugins.</div>";
 
     console.error(error);
+
+    pluginsElement.innerHTML =
+        '<div class="loading">Erro ao carregar plugins.</div>';
+
     return;
 }
 
@@ -88,21 +91,27 @@ countElement.textContent =
     `${list.length} plugin${list.length === 1 ? "" : "s"}`;
 
 if (!list.length) {
+
     pluginsElement.innerHTML =
         '<div class="loading">Nenhum plugin publicado.</div>';
+
     return;
 }
 
 pluginsElement.innerHTML = list.map(plugin => {
 
-    const path = plugin.file_path;
-
     const fileURL =
         db.storage
             .from("plugins")
-            .getPublicUrl(path)
+            .getPublicUrl(plugin.file_path)
             .data
             .publicUrl;
+
+    const safeURL =
+        encodeURIComponent(fileURL);
+
+    const safeFileName =
+        encodeURIComponent(plugin.file_name || "plugin.js");
 
     return `
         <article class="plugin">
@@ -118,42 +127,84 @@ pluginsElement.innerHTML = list.map(plugin => {
             </div>
 
             <button
-                onclick="downloadPlugin(
-                    '${escapeHTML(fileURL)}',
-                    '${escapeHTML(plugin.file_name)}',
-                    '${plugin.id}'
-                )"
+                class="installButton"
+                data-url="${safeURL}"
+                data-file="${safeFileName}"
+                data-id="${escapeHTML(plugin.id)}"
             >
-                Baixar plugin
+                Instalar plugin
             </button>
 
         </article>
     `;
 
 }).join("");
+
+document.querySelectorAll(".installButton").forEach(button => {
+
+    button.addEventListener("click", () => {
+
+        const url =
+            decodeURIComponent(button.dataset.url);
+
+        const fileName =
+            decodeURIComponent(button.dataset.file);
+
+        const pluginId =
+            button.dataset.id;
+
+        installPlugin(
+            url,
+            fileName,
+            pluginId,
+            button
+        );
+
+    });
+
+});
 ```
 
 }
 
-window.downloadPlugin = async function(url, fileName, pluginId) {
+async function installPlugin(
+url,
+fileName,
+pluginId,
+button
+) {
 
 ```
+const originalText =
+    button.textContent;
+
+button.disabled = true;
+button.textContent = "Instalando...";
+
 try {
 
-    const response = await fetch(url);
+    const response =
+        await fetch(url);
 
     if (!response.ok) {
-        throw new Error("Falha ao baixar");
+        throw new Error("Não foi possível baixar o plugin.");
     }
 
-    const blob = await response.blob();
+    const blob =
+        await response.blob();
 
-    const blobURL = URL.createObjectURL(blob);
+    const blobURL =
+        URL.createObjectURL(blob);
 
-    const link = document.createElement("a");
+    const link =
+        document.createElement("a");
 
     link.href = blobURL;
-    link.download = fileName || "plugin.js";
+
+    link.download =
+        fileName.toLowerCase().endsWith(".js")
+            ? fileName
+            : `${fileName}.js`;
 
     document.body.appendChild(link);
 
@@ -161,162 +212,121 @@ try {
 
     link.remove();
 
-    URL.revokeObjectURL(blobURL);
+    setTimeout(() => {
+        URL.revokeObjectURL(blobURL);
+    }, 1000);
 
-    await db.rpc(
-        "increment_plugin_downloads",
-        {
-            plugin_id: pluginId
-        }
-    );
+    try {
 
-} catch (error) {
-
-    window.open(url, "_blank");
-
-}
-```
-
-};
-
-searchInput.addEventListener("input", () => {
-
-```
-const query =
-    searchInput.value
-        .trim()
-        .toLowerCase();
-
-if (!query) {
-    renderPlugins(allPlugins);
-    return;
-}
-
-const filtered =
-    allPlugins.filter(plugin => {
-
-        return (
-            plugin.name.toLowerCase().includes(query) ||
-            plugin.description.toLowerCase().includes(query)
+        await db.rpc(
+            "increment_plugin_downloads",
+            {
+                plugin_id: pluginId
+            }
         );
 
-    });
+    } catch (downloadError) {
 
-renderPlugins(filtered);
-```
+        console.error(
+            "Erro ao registrar download:",
+            downloadError
+        );
 
-});
-
-pluginForm.addEventListener("submit", async event => {
-
-```
-event.preventDefault();
-
-const name =
-    document.getElementById("pluginName").value.trim();
-
-const description =
-    document.getElementById("pluginDescription").value.trim();
-
-const version =
-    document.getElementById("pluginVersion").value.trim();
-
-const file =
-    document.getElementById("pluginFile").files[0];
-
-if (!file) {
-    showToast("Escolha um arquivo .js.");
-    return;
-}
-
-if (!file.name.toLowerCase().endsWith(".js")) {
-    showToast("O arquivo precisa ser .js.");
-    return;
-}
-
-if (file.size > 1024 * 1024) {
-    showToast("O plugin pode ter no máximo 1 MB.");
-    return;
-}
-
-const submitButton =
-    document.getElementById("submitButton");
-
-submitButton.disabled = true;
-submitButton.textContent = "Publicando...";
-
-try {
-
-    const fakeUserId =
-        crypto.randomUUID();
-
-    const safeName =
-        file.name
-            .replace(/[^a-zA-Z0-9._-]/g, "_");
-
-    const path =
-        `public/${fakeUserId}/${Date.now()}-${safeName}`;
-
-    const upload =
-        await db.storage
-            .from("plugins")
-            .upload(path, file, {
-                contentType: "application/javascript",
-                upsert: false
-            });
-
-    if (upload.error) {
-        throw upload.error;
     }
 
-    const insert =
-        await db
-            .from("plugins")
-            .insert({
-                name,
-                description,
-                version,
-                category: "System Silence",
-                file_path: path,
-                file_name: file.name,
-                downloads: 0
-            });
-
-    if (insert.error) {
-        await db.storage
-            .from("plugins")
-            .remove([path]);
-
-        throw insert.error;
-    }
-
-    pluginForm.reset();
-
-    document.getElementById("pluginVersion").value =
-        "1.0.0";
-
-    publishModal.classList.add("hidden");
-
-    showToast("Plugin publicado!");
-
-    await loadPlugins();
+    showToast(
+        "Plugin baixado! Coloque o arquivo na pasta plugins do System Silence."
+    );
 
 } catch (error) {
 
     console.error(error);
 
     showToast(
-        "Não foi possível publicar. Configure o banco do Supabase."
+        "Não foi possível instalar o plugin."
     );
 
 } finally {
 
-    submitButton.disabled = false;
-    submitButton.textContent = "Publicar";
+    button.disabled = false;
+    button.textContent = originalText;
+
+}
+```
 
 }
 
+searchInput.addEventListener(
+"input",
+() => {
 
-});
+```
+    const query =
+        searchInput.value
+            .trim()
+            .toLowerCase();
 
-loadPlugins();
+    if (!query) {
+
+        renderPlugins(allPlugins);
+
+        return;
+    }
+
+    const filtered =
+        allPlugins.filter(plugin => {
+
+            const name =
+                String(plugin.name || "")
+                    .toLowerCase();
+
+            const description =
+                String(plugin.description || "")
+                    .toLowerCase();
+
+            const version =
+                String(plugin.version || "")
+                    .toLowerCase();
+
+            return (
+                name.includes(query) ||
+                description.includes(query) ||
+                version.includes(query)
+            );
+
+        });
+
+    renderPlugins(filtered);
+
+}
+```
+
+);
+
+pluginForm.addEventListener(
+"submit",
+async event => {
+
+```
+    event.preventDefault();
+
+    const name =
+        document
+            .getElementById("pluginName")
+            .value
+            .trim();
+
+    const description =
+        document
+            .getElementById("pluginDescription")
+            .value
+            .trim();
+
+    const version =
+        document
+            .getElementById("pluginVersion")
+            .value
+            .trim();
+
+    const file =
+```
