@@ -22,13 +22,19 @@
 ```
 <section class="hero">
     <h2>Plugins da comunidade</h2>
-    <p>Publique e baixe plugins JavaScript para o System Silence.</p>
+    <p>Publique e instale plugins para o System Silence.</p>
 
-    <button id="publishButton">+ Publicar plugin</button>
+    <button id="publishButton">
+        + Publicar plugin
+    </button>
 </section>
 
 <section class="search">
-    <input id="search" type="text" placeholder="Pesquisar plugin...">
+    <input
+        id="search"
+        type="search"
+        placeholder="Pesquisar plugins..."
+    >
 </section>
 
 <section>
@@ -38,7 +44,9 @@
     </div>
 
     <div id="plugins" class="plugins">
-        <div class="loading">Carregando plugins...</div>
+        <div class="loading">
+            Carregando plugins...
+        </div>
     </div>
 </section>
 ```
@@ -50,25 +58,66 @@
 ```
 <div class="modalBox">
 
-    <button id="closeModal" class="close">×</button>
+    <button
+        id="closeModal"
+        class="close"
+        type="button"
+    >
+        ×
+    </button>
 
     <h2>Publicar plugin</h2>
 
     <form id="pluginForm">
 
-        <label>Nome</label>
-        <input id="pluginName" required maxlength="80">
+        <label for="pluginName">
+            Nome
+        </label>
 
-        <label>Descrição</label>
-        <textarea id="pluginDescription" required maxlength="500"></textarea>
+        <input
+            id="pluginName"
+            type="text"
+            maxlength="80"
+            required
+        >
 
-        <label>Versão</label>
-        <input id="pluginVersion" value="1.0.0" required>
+        <label for="pluginDescription">
+            Descrição
+        </label>
 
-        <label>Arquivo .js</label>
-        <input id="pluginFile" type="file" accept=".js" required>
+        <textarea
+            id="pluginDescription"
+            maxlength="500"
+            required
+        ></textarea>
 
-        <button id="submitButton" class="publish" type="submit">
+        <label for="pluginVersion">
+            Versão
+        </label>
+
+        <input
+            id="pluginVersion"
+            type="text"
+            value="1.0.0"
+            required
+        >
+
+        <label for="pluginFile">
+            Arquivo JavaScript
+        </label>
+
+        <input
+            id="pluginFile"
+            type="file"
+            accept=".js"
+            required
+        >
+
+        <button
+            id="submitButton"
+            class="publish"
+            type="submit"
+        >
             Publicar
         </button>
 
