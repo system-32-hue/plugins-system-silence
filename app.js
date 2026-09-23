@@ -69,7 +69,7 @@ function showToast(message) {
 
     showToast.timer = setTimeout(function () {
         toast.classList.remove("show");
-    }, 3500);
+    }, 4000);
 }
 
 function publicHeaders() {
@@ -100,7 +100,8 @@ function saveSession(session) {
 
 function getSavedSession() {
     try {
-        const value = localStorage.getItem(SESSION_KEY);
+        const value =
+            localStorage.getItem(SESSION_KEY);
 
         if (!value) {
             return null;
@@ -129,10 +130,13 @@ async function authRequest(path, options) {
         }
     );
 
+    const text =
+        await response.text();
+
     let data = null;
 
     try {
-        data = await response.json();
+        data = JSON.parse(text);
     } catch {
         data = null;
     }
@@ -143,7 +147,8 @@ async function authRequest(path, options) {
             data?.message ||
             data?.error_description ||
             data?.error ||
-            "Erro de autenticação."
+            text ||
+            "Erro HTTP " + response.status
         );
     }
 
@@ -151,16 +156,17 @@ async function authRequest(path, options) {
 }
 
 async function login(email, password) {
-    const data = await authRequest(
-        "/token?grant_type=password",
-        {
-            method: "POST",
-            body: JSON.stringify({
-                email: email,
-                password: password
-            })
-        }
-    );
+    const data =
+        await authRequest(
+            "/token?grant_type=password",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                })
+            }
+        );
 
     currentSession = data;
     currentUser = data.user;
@@ -169,42 +175,69 @@ async function login(email, password) {
 
     await updateUser();
 
-    closeLoginModal();
+    window.closeLoginModal();
 
-    showToast("Login realizado com sucesso.");
+    authForm.reset();
+
+    showToast(
+        "Login realizado com sucesso."
+    );
 
     await loadPlugins();
 }
 
 async function register(email, password) {
-    const data = await authRequest(
-        "/signup",
-        {
-            method: "POST",
-            body: JSON.stringify({
-                email: email,
-                password: password
-            })
+    try {
+        const data =
+            await authRequest(
+                "/signup",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                }
+            );
+
+        if (data.access_token) {
+            currentSession = data;
+            currentUser = data.user;
+
+            saveSession(data);
+
+            await updateUser();
+
+            window.closeLoginModal();
+
+            authForm.reset();
+
+            showToast(
+                "Conta criada com sucesso."
+            );
+
+            await loadPlugins();
+
+            return;
         }
-    );
 
-    if (data.access_token) {
-        currentSession = data;
-        currentUser = data.user;
+        authForm.reset();
 
-        saveSession(data);
-
-        await updateUser();
-
-        closeLoginModal();
-
-        showToast("Conta criada com sucesso.");
-
-        await loadPlugins();
-    } else {
         showToast(
             "Conta criada. Verifique seu email para confirmar."
         );
+    } catch (error) {
+        console.error(
+            "SUPABASE SIGNUP ERROR:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "O Supabase recusou o cadastro."
+        );
+
+        throw error;
     }
 }
 
@@ -216,7 +249,8 @@ async function logout() {
                 {
                     method: "POST",
                     headers: {
-                        "apikey": SUPABASE_KEY,
+                        "apikey":
+                            SUPABASE_KEY,
                         "Authorization":
                             "Bearer " +
                             currentSession.access_token
@@ -236,7 +270,9 @@ async function logout() {
     updateUserUI();
     renderPlugins();
 
-    showToast("Você saiu da conta.");
+    showToast(
+        "Você saiu da conta."
+    );
 }
 
 async function refreshSession() {
@@ -245,16 +281,17 @@ async function refreshSession() {
     }
 
     try {
-        const data = await authRequest(
-            "/token?grant_type=refresh_token",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    refresh_token:
-                        currentSession.refresh_token
-                })
-            }
-        );
+        const data =
+            await authRequest(
+                "/token?grant_type=refresh_token",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        refresh_token:
+                            currentSession.refresh_token
+                    })
+                }
+            );
 
         currentSession = data;
         currentUser = data.user;
@@ -274,7 +311,8 @@ async function refreshSession() {
 }
 
 async function loadSession() {
-    const saved = getSavedSession();
+    const saved =
+        getSavedSession();
 
     if (!saved) {
         updateUserUI();
@@ -305,22 +343,26 @@ async function updateUser() {
     if (!currentSession?.access_token) {
         currentUser = null;
         currentAdmin = false;
+
         updateUserUI();
+
         return;
     }
 
     try {
-        let response = await fetch(
-            AUTH_URL + "/user",
-            {
-                headers: {
-                    "apikey": SUPABASE_KEY,
-                    "Authorization":
-                        "Bearer " +
-                        currentSession.access_token
+        let response =
+            await fetch(
+                AUTH_URL + "/user",
+                {
+                    headers: {
+                        "apikey":
+                            SUPABASE_KEY,
+                        "Authorization":
+                            "Bearer " +
+                            currentSession.access_token
+                    }
                 }
-            }
-        );
+            );
 
         if (!response.ok) {
             const refreshed =
@@ -329,28 +371,35 @@ async function updateUser() {
             if (!refreshed) {
                 currentUser = null;
                 currentAdmin = false;
+
                 updateUserUI();
+
                 return;
             }
 
-            response = await fetch(
-                AUTH_URL + "/user",
-                {
-                    headers: {
-                        "apikey": SUPABASE_KEY,
-                        "Authorization":
-                            "Bearer " +
-                            currentSession.access_token
+            response =
+                await fetch(
+                    AUTH_URL + "/user",
+                    {
+                        headers: {
+                            "apikey":
+                                SUPABASE_KEY,
+                            "Authorization":
+                                "Bearer " +
+                                currentSession.access_token
+                        }
                     }
-                }
-            );
+                );
         }
 
         if (!response.ok) {
-            throw new Error("Sessão inválida.");
+            throw new Error(
+                "Sessão inválida."
+            );
         }
 
-        currentUser = await response.json();
+        currentUser =
+            await response.json();
 
         currentAdmin = false;
 
@@ -359,10 +408,13 @@ async function updateUser() {
                 await fetch(
                     REST_URL +
                     "/profiles?id=eq." +
-                    encodeURIComponent(currentUser.id) +
+                    encodeURIComponent(
+                        currentUser.id
+                    ) +
                     "&select=is_admin",
                     {
-                        headers: authHeaders()
+                        headers:
+                            authHeaders()
                     }
                 );
 
@@ -382,6 +434,7 @@ async function updateUser() {
         }
 
         updateUserUI();
+        renderPlugins();
     } catch {
         currentUser = null;
         currentAdmin = false;
@@ -397,155 +450,241 @@ function updateUserUI() {
         userEmail.textContent =
             currentUser.email || "";
 
-        loginButton.classList.add("hidden");
-        logoutButton.classList.remove("hidden");
+        loginButton.classList.add(
+            "hidden"
+        );
+
+        logoutButton.classList.remove(
+            "hidden"
+        );
     } else {
         userEmail.textContent = "";
 
-        loginButton.classList.remove("hidden");
-        logoutButton.classList.add("hidden");
+        loginButton.classList.remove(
+            "hidden"
+        );
+
+        logoutButton.classList.add(
+            "hidden"
+        );
     }
 }
 
-loginButton.onclick = function () {
-    window.openLoginModal();
-};
+loginButton.onclick =
+    function () {
+        window.openLoginModal();
+    };
 
-logoutButton.onclick = function () {
-    logout();
-};
+logoutButton.onclick =
+    function () {
+        logout();
+    };
 
-document.getElementById("closeLogin").onclick =
+document.getElementById(
+    "closeLogin"
+).onclick =
     function () {
         window.closeLoginModal();
     };
 
-document.getElementById("closeModal").onclick =
+document.getElementById(
+    "closeModal"
+).onclick =
     function () {
         window.closePublishModal();
     };
 
-loginModal.onclick = function (event) {
-    if (event.target === loginModal) {
-        window.closeLoginModal();
-    }
-};
+loginModal.onclick =
+    function (event) {
+        if (
+            event.target ===
+            loginModal
+        ) {
+            window.closeLoginModal();
+        }
+    };
 
-publishModal.onclick = function (event) {
-    if (event.target === publishModal) {
-        window.closePublishModal();
-    }
-};
+publishModal.onclick =
+    function (event) {
+        if (
+            event.target ===
+            publishModal
+        ) {
+            window.closePublishModal();
+        }
+    };
 
-switchAuth.onclick = function () {
-    if (loginMode === "login") {
-        loginMode = "signup";
+switchAuth.onclick =
+    function () {
+        if (
+            loginMode === "login"
+        ) {
+            loginMode = "signup";
 
-        authTitle.textContent = "Criar conta";
-        authSubmit.textContent = "Criar conta";
-        switchAuth.textContent = "Já tenho uma conta";
-    } else {
-        loginMode = "login";
+            authTitle.textContent =
+                "Criar conta";
 
-        authTitle.textContent = "Login";
-        authSubmit.textContent = "Entrar";
-        switchAuth.textContent = "Criar uma conta";
-    }
-};
+            authSubmit.textContent =
+                "Criar conta";
 
-authForm.onsubmit = async function (event) {
-    event.preventDefault();
-
-    const email = authEmail.value.trim();
-    const password = authPassword.value;
-
-    if (!email || !password) {
-        showToast("Preencha email e senha.");
-        return;
-    }
-
-    authSubmit.disabled = true;
-
-    authSubmit.textContent =
-        loginMode === "login"
-            ? "Entrando..."
-            : "Criando...";
-
-    try {
-        if (loginMode === "login") {
-            await login(email, password);
+            switchAuth.textContent =
+                "Já tenho uma conta";
         } else {
-            await register(email, password);
+            loginMode = "login";
+
+            authTitle.textContent =
+                "Login";
+
+            authSubmit.textContent =
+                "Entrar";
+
+            switchAuth.textContent =
+                "Criar uma conta";
+        }
+    };
+
+authForm.onsubmit =
+    async function (event) {
+        event.preventDefault();
+
+        const email =
+            authEmail.value.trim();
+
+        const password =
+            authPassword.value;
+
+        if (!email) {
+            showToast(
+                "Digite seu email."
+            );
+
+            return;
         }
 
-        authForm.reset();
-    } catch (error) {
-        let message =
-            error.message ||
-            "Ocorreu um erro.";
+        if (!password) {
+            showToast(
+                "Digite sua senha."
+            );
 
-        const lower =
-            message.toLowerCase();
+            return;
+        }
 
         if (
-            lower.includes(
-                "invalid login credentials"
-            )
+            password.length < 6
         ) {
-            message =
-                "Email ou senha incorretos.";
+            showToast(
+                "A senha precisa ter pelo menos 6 caracteres."
+            );
+
+            return;
         }
 
-        if (
-            lower.includes(
-                "email not confirmed"
-            )
-        ) {
-            message =
-                "Confirme seu email antes de entrar.";
-        }
-
-        if (
-            lower.includes(
-                "user already registered"
-            )
-        ) {
-            message =
-                "Este email já possui uma conta.";
-        }
-
-        showToast(message);
-    } finally {
-        authSubmit.disabled = false;
+        authSubmit.disabled =
+            true;
 
         authSubmit.textContent =
             loginMode === "login"
-                ? "Entrar"
-                : "Criar conta";
-    }
-};
+                ? "Entrando..."
+                : "Criando...";
 
-publishButton.onclick = function () {
-    if (!currentUser) {
-        window.openLoginModal();
-        showToast(
-            "Faça login para publicar um plugin."
+        try {
+            if (
+                loginMode === "login"
+            ) {
+                await login(
+                    email,
+                    password
+                );
+            } else {
+                await register(
+                    email,
+                    password
+                );
+            }
+        } catch (error) {
+            let message =
+                error.message ||
+                "Ocorreu um erro.";
+
+            const lower =
+                message.toLowerCase();
+
+            if (
+                lower.includes(
+                    "invalid login credentials"
+                )
+            ) {
+                message =
+                    "Email ou senha incorretos.";
+            }
+
+            if (
+                lower.includes(
+                    "email not confirmed"
+                )
+            ) {
+                message =
+                    "Confirme seu email antes de entrar.";
+            }
+
+            if (
+                lower.includes(
+                    "user already registered"
+                )
+            ) {
+                message =
+                    "Este email já possui uma conta.";
+            }
+
+            if (
+                lower.includes(
+                    "password should be at least"
+                )
+            ) {
+                message =
+                    "A senha precisa ter pelo menos 6 caracteres.";
+            }
+
+            showToast(message);
+        } finally {
+            authSubmit.disabled =
+                false;
+
+            authSubmit.textContent =
+                loginMode === "login"
+                    ? "Entrar"
+                    : "Criar conta";
+        }
+    };
+
+publishButton.onclick =
+    function () {
+        if (!currentUser) {
+            window.openLoginModal();
+
+            showToast(
+                "Faça login para publicar um plugin."
+            );
+
+            return;
+        }
+
+        publishModal.classList.remove(
+            "hidden"
         );
-        return;
-    }
-
-    publishModal.classList.remove("hidden");
-};
+    };
 
 async function loadPlugins() {
     try {
-        const response = await fetch(
-            REST_URL +
-            "/plugins?select=*&order=created_at.desc",
-            {
-                headers: publicHeaders()
-            }
-        );
+        const response =
+            await fetch(
+                REST_URL +
+                "/plugins?select=*&order=created_at.desc",
+                {
+                    headers:
+                        publicHeaders()
+                }
+            );
 
         if (!response.ok) {
             throw new Error(
@@ -553,13 +692,16 @@ async function loadPlugins() {
             );
         }
 
-        plugins = await response.json();
+        plugins =
+            await response.json();
 
         renderPlugins();
     } catch (error) {
         pluginsContainer.innerHTML =
             '<div class="loading">' +
-            escapeHTML(error.message) +
+            escapeHTML(
+                error.message
+            ) +
             "</div>";
 
         countElement.textContent =
@@ -574,20 +716,29 @@ function renderPlugins() {
             .toLowerCase();
 
     const filtered =
-        plugins.filter(function (plugin) {
-            const name =
-                String(plugin.name || "")
-                    .toLowerCase();
+        plugins.filter(
+            function (plugin) {
+                const name =
+                    String(
+                        plugin.name || ""
+                    ).toLowerCase();
 
-            const description =
-                String(plugin.description || "")
-                    .toLowerCase();
+                const description =
+                    String(
+                        plugin.description ||
+                        ""
+                    ).toLowerCase();
 
-            return (
-                name.includes(search) ||
-                description.includes(search)
-            );
-        });
+                return (
+                    name.includes(
+                        search
+                    ) ||
+                    description.includes(
+                        search
+                    )
+                );
+            }
+        );
 
     countElement.textContent =
         filtered.length +
@@ -597,7 +748,9 @@ function renderPlugins() {
                 : " plugins"
         );
 
-    if (filtered.length === 0) {
+    if (
+        filtered.length === 0
+    ) {
         pluginsContainer.innerHTML =
             '<div class="loading">' +
             "Nenhum plugin encontrado." +
@@ -606,122 +759,139 @@ function renderPlugins() {
         return;
     }
 
-    pluginsContainer.innerHTML = "";
+    pluginsContainer.innerHTML =
+        "";
 
-    filtered.forEach(function (plugin) {
-        const card =
-            document.createElement("div");
-
-        card.className = "pluginCard";
-
-        const name =
-            escapeHTML(
-                plugin.name ||
-                "Plugin sem nome"
-            );
-
-        const description =
-            escapeHTML(
-                plugin.description ||
-                "Sem descrição."
-            );
-
-        const version =
-            escapeHTML(
-                plugin.version ||
-                "1.0.0"
-            );
-
-        const owner =
-            escapeHTML(
-                plugin.owner_email ||
-                "Desconhecido"
-            );
-
-        card.innerHTML =
-            "<div class=\"pluginTop\">" +
-                "<div>" +
-                    "<h3>" +
-                        name +
-                    "</h3>" +
-                    "<span class=\"version\">" +
-                        "v" +
-                        version +
-                    "</span>" +
-                "</div>" +
-            "</div>" +
-
-            "<p>" +
-                description +
-            "</p>" +
-
-            "<div class=\"pluginOwner\">" +
-                "Publicado por " +
-                owner +
-            "</div>" +
-
-            "<button " +
-                "class=\"installButton\" " +
-                "type=\"button\">" +
-                "Instalar" +
-            "</button>";
-
-        const installButton =
-            card.querySelector(
-                ".installButton"
-            );
-
-        installButton.onclick =
-            function () {
-                installPlugin(plugin);
-            };
-
-        if (
-            currentUser &&
-            (
-                currentAdmin ||
-                currentUser.id ===
-                plugin.owner_id
-            )
-        ) {
-            const deleteButton =
+    filtered.forEach(
+        function (plugin) {
+            const card =
                 document.createElement(
-                    "button"
+                    "div"
                 );
 
-            deleteButton.className =
-                "deleteButton";
+            card.className =
+                "pluginCard";
 
-            deleteButton.type =
-                "button";
+            const name =
+                escapeHTML(
+                    plugin.name ||
+                    "Plugin sem nome"
+                );
 
-            deleteButton.textContent =
-                "Excluir plugin";
+            const description =
+                escapeHTML(
+                    plugin.description ||
+                    "Sem descrição."
+                );
 
-            deleteButton.onclick =
+            const version =
+                escapeHTML(
+                    plugin.version ||
+                    "1.0.0"
+                );
+
+            const owner =
+                escapeHTML(
+                    plugin.owner_email ||
+                    "Desconhecido"
+                );
+
+            card.innerHTML =
+                "<div class=\"pluginTop\">" +
+                    "<div>" +
+                        "<h3>" +
+                            name +
+                        "</h3>" +
+                        "<span class=\"version\">" +
+                            "v" +
+                            version +
+                        "</span>" +
+                    "</div>" +
+                "</div>" +
+
+                "<p>" +
+                    description +
+                "</p>" +
+
+                "<div class=\"pluginOwner\">" +
+                    "Publicado por " +
+                    owner +
+                "</div>" +
+
+                "<button " +
+                    "class=\"installButton\" " +
+                    "type=\"button\">" +
+                    "Instalar" +
+                "</button>";
+
+            const install =
+                card.querySelector(
+                    ".installButton"
+                );
+
+            install.onclick =
                 function () {
-                    deletePlugin(plugin);
+                    installPlugin(
+                        plugin
+                    );
                 };
 
-            card.appendChild(
-                deleteButton
+            if (
+                currentUser &&
+                (
+                    currentAdmin ||
+                    currentUser.id ===
+                    plugin.owner_id
+                )
+            ) {
+                const deleteButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                deleteButton.className =
+                    "deleteButton";
+
+                deleteButton.type =
+                    "button";
+
+                deleteButton.textContent =
+                    "Excluir plugin";
+
+                deleteButton.onclick =
+                    function () {
+                        deletePlugin(
+                            plugin
+                        );
+                    };
+
+                card.appendChild(
+                    deleteButton
+                );
+            }
+
+            pluginsContainer.appendChild(
+                card
             );
         }
-
-        pluginsContainer.appendChild(card);
-    });
+    );
 }
 
-async function installPlugin(plugin) {
+async function installPlugin(
+    plugin
+) {
     if (!plugin.file_path) {
         showToast(
             "Arquivo do plugin não encontrado."
         );
+
         return;
     }
 
     try {
-        showToast("Baixando plugin...");
+        showToast(
+            "Baixando plugin..."
+        );
 
         const response =
             await fetch(
@@ -740,10 +910,14 @@ async function installPlugin(plugin) {
             await response.blob();
 
         const url =
-            URL.createObjectURL(blob);
+            URL.createObjectURL(
+                blob
+            );
 
         const link =
-            document.createElement("a");
+            document.createElement(
+                "a"
+            );
 
         link.href = url;
 
@@ -751,29 +925,43 @@ async function installPlugin(plugin) {
             plugin.file_name ||
             "plugin.js";
 
-        document.body.appendChild(link);
+        document.body.appendChild(
+            link
+        );
 
         link.click();
 
         link.remove();
 
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(
+            url
+        );
 
-        showToast("Plugin baixado.");
+        increaseDownloads(
+            plugin
+        );
 
-        increaseDownloads(plugin);
+        showToast(
+            "Plugin baixado."
+        );
     } catch (error) {
-        showToast(error.message);
+        showToast(
+            error.message
+        );
     }
 }
 
-async function increaseDownloads(plugin) {
+async function increaseDownloads(
+    plugin
+) {
     if (!plugin.id) {
         return;
     }
 
     const downloads =
-        Number(plugin.downloads || 0);
+        Number(
+            plugin.downloads || 0
+        );
 
     try {
         await fetch(
@@ -784,40 +972,52 @@ async function increaseDownloads(plugin) {
             ),
             {
                 method: "PATCH",
-                headers: publicHeaders(),
-                body: JSON.stringify({
-                    downloads:
-                        downloads + 1
-                })
+                headers:
+                    publicHeaders(),
+                body:
+                    JSON.stringify({
+                        downloads:
+                            downloads + 1
+                    })
             }
         );
     } catch {
     }
 }
 
-async function deletePlugin(plugin) {
+async function deletePlugin(
+    plugin
+) {
     if (!currentUser) {
         showToast(
             "Faça login primeiro."
         );
+
         return;
     }
 
-    const owner =
+    const isOwner =
         currentUser.id ===
         plugin.owner_id;
 
-    if (!owner && !currentAdmin) {
+    if (
+        !isOwner &&
+        !currentAdmin
+    ) {
         showToast(
             "Você não pode excluir este plugin."
         );
+
         return;
     }
 
     const confirmed =
         confirm(
             'Excluir o plugin "' +
-            (plugin.name || "sem nome") +
+            (
+                plugin.name ||
+                "sem nome"
+            ) +
             '"?'
         );
 
@@ -830,25 +1030,31 @@ async function deletePlugin(plugin) {
             "Excluindo plugin..."
         );
 
-        if (plugin.file_path) {
+        if (
+            plugin.file_path
+        ) {
             const storageResponse =
                 await fetch(
                     STORAGE_URL +
                     "/object/plugins",
                     {
-                        method: "DELETE",
-                        headers: authHeaders(),
-                        body: JSON.stringify({
-                            prefixes: [
-                                plugin.file_path
-                            ]
-                        })
+                        method:
+                            "DELETE",
+                        headers:
+                            authHeaders(),
+                        body:
+                            JSON.stringify({
+                                prefixes: [
+                                    plugin.file_path
+                                ]
+                            })
                     }
                 );
 
             if (
                 !storageResponse.ok &&
-                storageResponse.status !== 404
+                storageResponse.status !==
+                404
             ) {
                 throw new Error(
                     "Não foi possível excluir o arquivo."
@@ -864,8 +1070,10 @@ async function deletePlugin(plugin) {
                     plugin.id
                 ),
                 {
-                    method: "DELETE",
-                    headers: authHeaders()
+                    method:
+                        "DELETE",
+                    headers:
+                        authHeaders()
                 }
             );
 
@@ -908,6 +1116,7 @@ pluginForm.onsubmit =
             showToast(
                 "Faça login para publicar."
             );
+
             return;
         }
 
@@ -938,6 +1147,7 @@ pluginForm.onsubmit =
             showToast(
                 "Selecione um arquivo .js."
             );
+
             return;
         }
 
@@ -949,6 +1159,7 @@ pluginForm.onsubmit =
             showToast(
                 "O arquivo precisa ser JavaScript."
             );
+
             return;
         }
 
@@ -959,10 +1170,13 @@ pluginForm.onsubmit =
             showToast(
                 "O plugin não pode ter mais de 1 MB."
             );
+
             return;
         }
 
-        submitButton.disabled = true;
+        submitButton.disabled =
+            true;
+
         submitButton.textContent =
             "Publicando...";
 
@@ -995,7 +1209,8 @@ pluginForm.onsubmit =
                     "/object/plugins/" +
                     uploadedPath,
                     {
-                        method: "POST",
+                        method:
+                            "POST",
                         headers: {
                             "apikey":
                                 SUPABASE_KEY,
@@ -1009,12 +1224,20 @@ pluginForm.onsubmit =
                             "x-upsert":
                                 "false"
                         },
-                        body: file
+                        body:
+                            file
                     }
                 );
 
-            if (!uploadResponse.ok) {
+            if (
+                !uploadResponse.ok
+            ) {
+                const text =
+                    await uploadResponse
+                        .text();
+
                 throw new Error(
+                    text ||
                     "Não foi possível enviar o arquivo."
                 );
             }
@@ -1024,7 +1247,8 @@ pluginForm.onsubmit =
                     REST_URL +
                     "/plugins",
                     {
-                        method: "POST",
+                        method:
+                            "POST",
                         headers: {
                             ...authHeaders(),
                             "Prefer":
@@ -1054,8 +1278,15 @@ pluginForm.onsubmit =
                     }
                 );
 
-            if (!insertResponse.ok) {
+            if (
+                !insertResponse.ok
+            ) {
+                const text =
+                    await insertResponse
+                        .text();
+
                 throw new Error(
+                    text ||
                     "Não foi possível salvar o plugin."
                 );
             }
@@ -1076,7 +1307,8 @@ pluginForm.onsubmit =
                         STORAGE_URL +
                         "/object/plugins",
                         {
-                            method: "DELETE",
+                            method:
+                                "DELETE",
                             headers:
                                 authHeaders(),
                             body:
@@ -1123,7 +1355,7 @@ function escapeHTML(value) {
             "&gt;"
         )
         .replaceAll(
-            "\"",
+            '"',
             "&quot;"
         )
         .replaceAll(
