@@ -215,7 +215,6 @@ async function login(email, password) {
     saveSession(data);
 
     updateAdminStatus();
-
     updateUserUI();
 
     window.closeLoginModal();
@@ -248,7 +247,6 @@ async function register(email, password) {
         saveSession(data);
 
         updateAdminStatus();
-
         updateUserUI();
 
         window.closeLoginModal();
@@ -725,9 +723,15 @@ function renderPlugins() {
                         plugin.description || ""
                     ).toLowerCase();
 
+                const owner =
+                    String(
+                        plugin.owner_email || ""
+                    ).toLowerCase();
+
                 return (
                     name.includes(search) ||
-                    description.includes(search)
+                    description.includes(search) ||
+                    owner.includes(search)
                 );
             }
         );
@@ -887,6 +891,103 @@ function renderPlugins() {
             }
 
             if (currentAdmin) {
+                const whoMadeButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                whoMadeButton.className =
+                    "editButton";
+
+                whoMadeButton.type =
+                    "button";
+
+                whoMadeButton.textContent =
+                    "Edit who made this";
+
+                whoMadeButton.onclick =
+                    async function () {
+                        const newOwner =
+                            prompt(
+                                "Digite quem fez este plugin:",
+                                plugin.owner_email || ""
+                            );
+
+                        if (
+                            newOwner === null
+                        ) {
+                            return;
+                        }
+
+                        const value =
+                            newOwner.trim();
+
+                        if (!value) {
+                            showToast(
+                                "Digite quem fez o plugin."
+                            );
+                            return;
+                        }
+
+                        try {
+                            showToast(
+                                "Alterando..."
+                            );
+
+                            const response =
+                                await fetch(
+                                    REST_URL +
+                                    "/plugins?id=eq." +
+                                    encodeURIComponent(
+                                        plugin.id
+                                    ),
+                                    {
+                                        method:
+                                            "PATCH",
+                                        headers: {
+                                            ...authHeaders(),
+                                            "Prefer":
+                                                "return=representation"
+                                        },
+                                        body:
+                                            JSON.stringify({
+                                                owner_email:
+                                                    value
+                                            })
+                                    }
+                                );
+
+                            if (
+                                !response.ok
+                            ) {
+                                const text =
+                                    await response.text();
+
+                                throw new Error(
+                                    text ||
+                                    "Não foi possível alterar quem fez o plugin."
+                                );
+                            }
+
+                            plugin.owner_email =
+                                value;
+
+                            renderPlugins();
+
+                            showToast(
+                                "Quem fez o plugin foi alterado."
+                            );
+                        } catch (error) {
+                            showToast(
+                                error.message
+                            );
+                        }
+                    };
+
+                card.appendChild(
+                    whoMadeButton
+                );
+
                 const adminLabel =
                     document.createElement(
                         "div"
