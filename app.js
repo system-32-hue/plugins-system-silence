@@ -214,7 +214,9 @@ async function login(email, password) {
 
     saveSession(data);
 
-    await updateUser();
+    updateAdminStatus();
+
+    updateUserUI();
 
     window.closeLoginModal();
 
@@ -245,7 +247,9 @@ async function register(email, password) {
 
         saveSession(data);
 
-        await updateUser();
+        updateAdminStatus();
+
+        updateUserUI();
 
         window.closeLoginModal();
 
@@ -265,6 +269,12 @@ async function register(email, password) {
     showToast(
         "Conta criada. Verifique seu email para confirmar."
     );
+}
+
+function updateAdminStatus() {
+    currentAdmin =
+        !!currentUser &&
+        currentUser.id === ADMIN_ID;
 }
 
 async function logout() {
@@ -289,6 +299,7 @@ async function logout() {
     currentSession = null;
     currentUser = null;
     currentAdmin = false;
+    editingPlugin = null;
 
     saveSession(null);
 
@@ -321,6 +332,8 @@ async function refreshSession() {
         currentUser = data.user;
 
         saveSession(data);
+
+        updateAdminStatus();
 
         return true;
     } catch {
@@ -418,40 +431,7 @@ async function updateUser() {
 
         currentUser = await response.json();
 
-        currentAdmin =
-            currentUser.id === ADMIN_ID;
-
-        if (!currentAdmin) {
-            try {
-                const profileResponse =
-                    await fetch(
-                        REST_URL +
-                        "/profiles?id=eq." +
-                        encodeURIComponent(
-                            currentUser.id
-                        ) +
-                        "&select=is_admin",
-                        {
-                            headers:
-                                authHeaders()
-                        }
-                    );
-
-                if (profileResponse.ok) {
-                    const profile =
-                        await profileResponse.json();
-
-                    if (
-                        profile.length > 0 &&
-                        profile[0].is_admin === true
-                    ) {
-                        currentAdmin = true;
-                    }
-                }
-            } catch {
-            }
-        }
-
+        updateAdminStatus();
         updateUserUI();
         renderPlugins();
     } catch {
@@ -700,7 +680,11 @@ async function loadPlugins() {
         );
 
         if (!response.ok) {
+            const text =
+                await response.text();
+
             throw new Error(
+                text ||
                 "Não foi possível carregar os plugins."
             );
         }
@@ -840,7 +824,7 @@ function renderPlugins() {
                 };
 
             const isOwner =
-                currentUser &&
+                !!currentUser &&
                 plugin.owner_id ===
                 currentUser.id;
 
@@ -902,9 +886,7 @@ function renderPlugins() {
                 );
             }
 
-            if (
-                currentAdmin
-            ) {
+            if (currentAdmin) {
                 const adminLabel =
                     document.createElement(
                         "div"
@@ -1249,7 +1231,7 @@ async function installPlugin(plugin) {
             url
         );
 
-        increaseDownloads(
+        await increaseDownloads(
             plugin
         );
 
@@ -1360,7 +1342,11 @@ async function deletePlugin(plugin) {
                 storageResponse.status !==
                 404
             ) {
+                const text =
+                    await storageResponse.text();
+
                 throw new Error(
+                    text ||
                     "Não foi possível excluir o arquivo."
                 );
             }
