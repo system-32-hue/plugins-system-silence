@@ -133,7 +133,7 @@ document.getElementById("search").addEventListener("input", event => {
 loadPlugins().catch(error => {
     document.getElementById("plugins").innerHTML = `
         <div class="empty">
-            Erro ao carregar a lista de plugins.<br><br>
+            Erro ao carregar a lista de plugins. ops daisy! >:3<br><br>
             ${escapeHTML(error.message)}
         </div>
     `;
