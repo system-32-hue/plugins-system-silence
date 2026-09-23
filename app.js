@@ -1,6 +1,8 @@
 const SUPABASE_URL = "https://skrbmtanugilgxfzflyf.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Acs-wmNpLpDCoiORLlUZtg_7oVBvHfd";
 
+const ADMIN_ID = "fe205ac8-20a3-4076-9c7b-a75b64f213bf";
+
 const REST_URL = SUPABASE_URL + "/rest/v1";
 const AUTH_URL = SUPABASE_URL + "/auth/v1";
 const STORAGE_URL = SUPABASE_URL + "/storage/v1";
@@ -12,6 +14,7 @@ let currentUser = null;
 let currentAdmin = false;
 let plugins = [];
 let loginMode = "login";
+let editingPlugin = null;
 
 const loginModal = document.getElementById("loginModal");
 const publishModal = document.getElementById("publishModal");
@@ -59,6 +62,7 @@ window.closeLoginModal = function () {
 
 window.closePublishModal = function () {
     publishModal.classList.add("hidden");
+    editingPlugin = null;
 };
 
 function showToast(message) {
@@ -100,8 +104,7 @@ function saveSession(session) {
 
 function getSavedSession() {
     try {
-        const value =
-            localStorage.getItem(SESSION_KEY);
+        const value = localStorage.getItem(SESSION_KEY);
 
         if (!value) {
             return null;
@@ -124,30 +127,69 @@ async function authRequest(path, options) {
             headers: {
                 "apikey": SUPABASE_KEY,
                 "Content-Type": "application/json",
+                "Accept": "application/json",
                 ...(options.headers || {})
             },
             body: options.body
         }
     );
 
-    const text =
-        await response.text();
+    const text = await response.text();
 
-    let data = null;
+    let data = {};
 
     try {
-        data = JSON.parse(text);
+        data = text ? JSON.parse(text) : {};
     } catch {
-        data = null;
+        data = {
+            message: text
+        };
     }
 
     if (!response.ok) {
+        const code =
+            data.code ||
+            data.error_code ||
+            "";
+
+        const message =
+            data.msg ||
+            data.message ||
+            data.error_description ||
+            data.error ||
+            "";
+
+        if (code === "email_provider_disabled") {
+            throw new Error(
+                "O login por email está desativado no Supabase."
+            );
+        }
+
+        if (code === "signup_disabled") {
+            throw new Error(
+                "O cadastro está desativado no Supabase."
+            );
+        }
+
+        if (
+            code === "email_exists" ||
+            message.toLowerCase().includes(
+                "user already registered"
+            )
+        ) {
+            throw new Error(
+                "Este email já possui uma conta."
+            );
+        }
+
+        if (code === "email_not_confirmed") {
+            throw new Error(
+                "Confirme o email da conta antes de fazer login."
+            );
+        }
+
         throw new Error(
-            data?.msg ||
-            data?.message ||
-            data?.error_description ||
-            data?.error ||
-            text ||
+            message ||
             "Erro HTTP " + response.status
         );
     }
@@ -156,17 +198,16 @@ async function authRequest(path, options) {
 }
 
 async function login(email, password) {
-    const data =
-        await authRequest(
-            "/token?grant_type=password",
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    email: email,
-                    password: password
-                })
-            }
-        );
+    const data = await authRequest(
+        "/token?grant_type=password",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                email: email,
+                password: password
+            })
+        }
+    );
 
     currentSession = data;
     currentUser = data.user;
@@ -187,58 +228,43 @@ async function login(email, password) {
 }
 
 async function register(email, password) {
-    try {
-        const data =
-            await authRequest(
-                "/signup",
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        email: email,
-                        password: password
-                    })
-                }
-            );
-
-        if (data.access_token) {
-            currentSession = data;
-            currentUser = data.user;
-
-            saveSession(data);
-
-            await updateUser();
-
-            window.closeLoginModal();
-
-            authForm.reset();
-
-            showToast(
-                "Conta criada com sucesso."
-            );
-
-            await loadPlugins();
-
-            return;
+    const data = await authRequest(
+        "/signup",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                email: email,
+                password: password
+            })
         }
+    );
+
+    if (data.access_token) {
+        currentSession = data;
+        currentUser = data.user;
+
+        saveSession(data);
+
+        await updateUser();
+
+        window.closeLoginModal();
 
         authForm.reset();
 
         showToast(
-            "Conta criada. Verifique seu email para confirmar."
-        );
-    } catch (error) {
-        console.error(
-            "SUPABASE SIGNUP ERROR:",
-            error
+            "Conta criada com sucesso."
         );
 
-        showToast(
-            error.message ||
-            "O Supabase recusou o cadastro."
-        );
+        await loadPlugins();
 
-        throw error;
+        return;
     }
+
+    authForm.reset();
+
+    showToast(
+        "Conta criada. Verifique seu email para confirmar."
+    );
 }
 
 async function logout() {
@@ -249,8 +275,7 @@ async function logout() {
                 {
                     method: "POST",
                     headers: {
-                        "apikey":
-                            SUPABASE_KEY,
+                        "apikey": SUPABASE_KEY,
                         "Authorization":
                             "Bearer " +
                             currentSession.access_token
@@ -281,17 +306,16 @@ async function refreshSession() {
     }
 
     try {
-        const data =
-            await authRequest(
-                "/token?grant_type=refresh_token",
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        refresh_token:
-                            currentSession.refresh_token
-                    })
-                }
-            );
+        const data = await authRequest(
+            "/token?grant_type=refresh_token",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    refresh_token:
+                        currentSession.refresh_token
+                })
+            }
+        );
 
         currentSession = data;
         currentUser = data.user;
@@ -311,8 +335,7 @@ async function refreshSession() {
 }
 
 async function loadSession() {
-    const saved =
-        getSavedSession();
+    const saved = getSavedSession();
 
     if (!saved) {
         updateUserUI();
@@ -327,8 +350,7 @@ async function loadSession() {
         Date.now() / 1000 >=
         currentSession.expires_at - 60
     ) {
-        const refreshed =
-            await refreshSession();
+        const refreshed = await refreshSession();
 
         if (!refreshed) {
             updateUserUI();
@@ -350,19 +372,17 @@ async function updateUser() {
     }
 
     try {
-        let response =
-            await fetch(
-                AUTH_URL + "/user",
-                {
-                    headers: {
-                        "apikey":
-                            SUPABASE_KEY,
-                        "Authorization":
-                            "Bearer " +
-                            currentSession.access_token
-                    }
+        let response = await fetch(
+            AUTH_URL + "/user",
+            {
+                headers: {
+                    "apikey": SUPABASE_KEY,
+                    "Authorization":
+                        "Bearer " +
+                        currentSession.access_token
                 }
-            );
+            }
+        );
 
         if (!response.ok) {
             const refreshed =
@@ -377,19 +397,17 @@ async function updateUser() {
                 return;
             }
 
-            response =
-                await fetch(
-                    AUTH_URL + "/user",
-                    {
-                        headers: {
-                            "apikey":
-                                SUPABASE_KEY,
-                            "Authorization":
-                                "Bearer " +
-                                currentSession.access_token
-                        }
+            response = await fetch(
+                AUTH_URL + "/user",
+                {
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization":
+                            "Bearer " +
+                            currentSession.access_token
                     }
-                );
+                }
+            );
         }
 
         if (!response.ok) {
@@ -398,39 +416,40 @@ async function updateUser() {
             );
         }
 
-        currentUser =
-            await response.json();
+        currentUser = await response.json();
 
-        currentAdmin = false;
+        currentAdmin =
+            currentUser.id === ADMIN_ID;
 
-        try {
-            const profileResponse =
-                await fetch(
-                    REST_URL +
-                    "/profiles?id=eq." +
-                    encodeURIComponent(
-                        currentUser.id
-                    ) +
-                    "&select=is_admin",
-                    {
-                        headers:
-                            authHeaders()
+        if (!currentAdmin) {
+            try {
+                const profileResponse =
+                    await fetch(
+                        REST_URL +
+                        "/profiles?id=eq." +
+                        encodeURIComponent(
+                            currentUser.id
+                        ) +
+                        "&select=is_admin",
+                        {
+                            headers:
+                                authHeaders()
+                        }
+                    );
+
+                if (profileResponse.ok) {
+                    const profile =
+                        await profileResponse.json();
+
+                    if (
+                        profile.length > 0 &&
+                        profile[0].is_admin === true
+                    ) {
+                        currentAdmin = true;
                     }
-                );
-
-            if (profileResponse.ok) {
-                const profile =
-                    await profileResponse.json();
-
-                if (
-                    profile.length > 0 &&
-                    profile[0].is_admin === true
-                ) {
-                    currentAdmin = true;
                 }
+            } catch {
             }
-        } catch {
-            currentAdmin = false;
         }
 
         updateUserUI();
@@ -470,221 +489,215 @@ function updateUserUI() {
     }
 }
 
-loginButton.onclick =
-    function () {
-        window.openLoginModal();
-    };
+loginButton.onclick = function () {
+    window.openLoginModal();
+};
 
-logoutButton.onclick =
-    function () {
-        logout();
-    };
+logoutButton.onclick = function () {
+    logout();
+};
 
 document.getElementById(
     "closeLogin"
-).onclick =
-    function () {
-        window.closeLoginModal();
-    };
+).onclick = function () {
+    window.closeLoginModal();
+};
 
 document.getElementById(
     "closeModal"
-).onclick =
-    function () {
+).onclick = function () {
+    window.closePublishModal();
+};
+
+loginModal.onclick = function (event) {
+    if (event.target === loginModal) {
+        window.closeLoginModal();
+    }
+};
+
+publishModal.onclick = function (event) {
+    if (event.target === publishModal) {
         window.closePublishModal();
-    };
+    }
+};
 
-loginModal.onclick =
-    function (event) {
-        if (
-            event.target ===
-            loginModal
-        ) {
-            window.closeLoginModal();
-        }
-    };
+switchAuth.onclick = function () {
+    if (loginMode === "login") {
+        loginMode = "signup";
 
-publishModal.onclick =
-    function (event) {
-        if (
-            event.target ===
-            publishModal
-        ) {
-            window.closePublishModal();
-        }
-    };
+        authTitle.textContent =
+            "Criar conta";
 
-switchAuth.onclick =
-    function () {
-        if (
-            loginMode === "login"
-        ) {
-            loginMode = "signup";
+        authSubmit.textContent =
+            "Criar conta";
 
-            authTitle.textContent =
-                "Criar conta";
+        switchAuth.textContent =
+            "Já tenho uma conta";
+    } else {
+        loginMode = "login";
 
-            authSubmit.textContent =
-                "Criar conta";
+        authTitle.textContent =
+            "Login";
 
-            switchAuth.textContent =
-                "Já tenho uma conta";
+        authSubmit.textContent =
+            "Entrar";
+
+        switchAuth.textContent =
+            "Criar uma conta";
+    }
+};
+
+authForm.onsubmit = async function (event) {
+    event.preventDefault();
+
+    const email =
+        authEmail.value.trim();
+
+    const password =
+        authPassword.value;
+
+    if (!email) {
+        showToast(
+            "Digite seu email."
+        );
+        return;
+    }
+
+    if (!password) {
+        showToast(
+            "Digite sua senha."
+        );
+        return;
+    }
+
+    if (password.length < 6) {
+        showToast(
+            "A senha precisa ter pelo menos 6 caracteres."
+        );
+        return;
+    }
+
+    authSubmit.disabled = true;
+
+    authSubmit.textContent =
+        loginMode === "login"
+            ? "Entrando..."
+            : "Criando...";
+
+    try {
+        if (loginMode === "login") {
+            await login(
+                email,
+                password
+            );
         } else {
-            loginMode = "login";
-
-            authTitle.textContent =
-                "Login";
-
-            authSubmit.textContent =
-                "Entrar";
-
-            switchAuth.textContent =
-                "Criar uma conta";
-        }
-    };
-
-authForm.onsubmit =
-    async function (event) {
-        event.preventDefault();
-
-        const email =
-            authEmail.value.trim();
-
-        const password =
-            authPassword.value;
-
-        if (!email) {
-            showToast(
-                "Digite seu email."
+            await register(
+                email,
+                password
             );
-
-            return;
         }
+    } catch (error) {
+        let message =
+            error.message ||
+            "Ocorreu um erro.";
 
-        if (!password) {
-            showToast(
-                "Digite sua senha."
-            );
+        const lower =
+            message.toLowerCase();
 
-            return;
+        if (
+            lower.includes(
+                "invalid login credentials"
+            )
+        ) {
+            message =
+                "Email ou senha incorretos.";
         }
 
         if (
-            password.length < 6
+            lower.includes(
+                "email not confirmed"
+            )
         ) {
-            showToast(
-                "A senha precisa ter pelo menos 6 caracteres."
-            );
-
-            return;
+            message =
+                "Confirme seu email antes de entrar.";
         }
 
-        authSubmit.disabled =
-            true;
+        if (
+            lower.includes(
+                "user already registered"
+            )
+        ) {
+            message =
+                "Este email já possui uma conta.";
+        }
+
+        if (
+            lower.includes(
+                "password should be at least"
+            )
+        ) {
+            message =
+                "A senha precisa ter pelo menos 6 caracteres.";
+        }
+
+        showToast(message);
+    } finally {
+        authSubmit.disabled = false;
 
         authSubmit.textContent =
             loginMode === "login"
-                ? "Entrando..."
-                : "Criando...";
+                ? "Entrar"
+                : "Criar conta";
+    }
+};
 
-        try {
-            if (
-                loginMode === "login"
-            ) {
-                await login(
-                    email,
-                    password
-                );
-            } else {
-                await register(
-                    email,
-                    password
-                );
-            }
-        } catch (error) {
-            let message =
-                error.message ||
-                "Ocorreu um erro.";
+publishButton.onclick = function () {
+    if (!currentUser) {
+        window.openLoginModal();
 
-            const lower =
-                message.toLowerCase();
-
-            if (
-                lower.includes(
-                    "invalid login credentials"
-                )
-            ) {
-                message =
-                    "Email ou senha incorretos.";
-            }
-
-            if (
-                lower.includes(
-                    "email not confirmed"
-                )
-            ) {
-                message =
-                    "Confirme seu email antes de entrar.";
-            }
-
-            if (
-                lower.includes(
-                    "user already registered"
-                )
-            ) {
-                message =
-                    "Este email já possui uma conta.";
-            }
-
-            if (
-                lower.includes(
-                    "password should be at least"
-                )
-            ) {
-                message =
-                    "A senha precisa ter pelo menos 6 caracteres.";
-            }
-
-            showToast(message);
-        } finally {
-            authSubmit.disabled =
-                false;
-
-            authSubmit.textContent =
-                loginMode === "login"
-                    ? "Entrar"
-                    : "Criar conta";
-        }
-    };
-
-publishButton.onclick =
-    function () {
-        if (!currentUser) {
-            window.openLoginModal();
-
-            showToast(
-                "Faça login para publicar um plugin."
-            );
-
-            return;
-        }
-
-        publishModal.classList.remove(
-            "hidden"
+        showToast(
+            "Faça login para publicar um plugin."
         );
-    };
+
+        return;
+    }
+
+    editingPlugin = null;
+
+    document.getElementById(
+        "pluginName"
+    ).value = "";
+
+    document.getElementById(
+        "pluginDescription"
+    ).value = "";
+
+    document.getElementById(
+        "pluginVersion"
+    ).value = "1.0.0";
+
+    document.getElementById(
+        "pluginFile"
+    ).value = "";
+
+    submitButton.textContent =
+        "Publicar";
+
+    publishModal.classList.remove(
+        "hidden"
+    );
+};
 
 async function loadPlugins() {
     try {
-        const response =
-            await fetch(
-                REST_URL +
-                "/plugins?select=*&order=created_at.desc",
-                {
-                    headers:
-                        publicHeaders()
-                }
-            );
+        const response = await fetch(
+            REST_URL +
+            "/plugins?select=*&order=created_at.desc",
+            {
+                headers:
+                    publicHeaders()
+            }
+        );
 
         if (!response.ok) {
             throw new Error(
@@ -725,17 +738,12 @@ function renderPlugins() {
 
                 const description =
                     String(
-                        plugin.description ||
-                        ""
+                        plugin.description || ""
                     ).toLowerCase();
 
                 return (
-                    name.includes(
-                        search
-                    ) ||
-                    description.includes(
-                        search
-                    )
+                    name.includes(search) ||
+                    description.includes(search)
                 );
             }
         );
@@ -748,9 +756,7 @@ function renderPlugins() {
                 : " plugins"
         );
 
-    if (
-        filtered.length === 0
-    ) {
+    if (filtered.length === 0) {
         pluginsContainer.innerHTML =
             '<div class="loading">' +
             "Nenhum plugin encontrado." +
@@ -759,8 +765,7 @@ function renderPlugins() {
         return;
     }
 
-    pluginsContainer.innerHTML =
-        "";
+    pluginsContainer.innerHTML = "";
 
     filtered.forEach(
         function (plugin) {
@@ -814,11 +819,11 @@ function renderPlugins() {
                 "</p>" +
 
                 "<div class=\"pluginOwner\">" +
+                    "Publicado por " +
+                    owner +
                 "</div>" +
 
-                "<button " +
-                    "class=\"installButton\" " +
-                    "type=\"button\">" +
+                "<button class=\"installButton\" type=\"button\">" +
                     "Instalar" +
                 "</button>";
 
@@ -834,14 +839,43 @@ function renderPlugins() {
                     );
                 };
 
+            const isOwner =
+                currentUser &&
+                plugin.owner_id ===
+                currentUser.id;
+
             if (
                 currentUser &&
                 (
                     currentAdmin ||
-                    currentUser.id ===
-                    plugin.owner_id
+                    isOwner
                 )
             ) {
+                const editButton =
+                    document.createElement(
+                        "button"
+                    );
+
+                editButton.className =
+                    "editButton";
+
+                editButton.type =
+                    "button";
+
+                editButton.textContent =
+                    "Editar";
+
+                editButton.onclick =
+                    function () {
+                        editPlugin(
+                            plugin
+                        );
+                    };
+
+                card.appendChild(
+                    editButton
+                );
+
                 const deleteButton =
                     document.createElement(
                         "button"
@@ -854,7 +888,7 @@ function renderPlugins() {
                     "button";
 
                 deleteButton.textContent =
-                    "Excluir plugin";
+                    "Excluir";
 
                 deleteButton.onclick =
                     function () {
@@ -868,6 +902,25 @@ function renderPlugins() {
                 );
             }
 
+            if (
+                currentAdmin
+            ) {
+                const adminLabel =
+                    document.createElement(
+                        "div"
+                    );
+
+                adminLabel.className =
+                    "adminLabel";
+
+                adminLabel.textContent =
+                    "ADMIN";
+
+                card.appendChild(
+                    adminLabel
+                );
+            }
+
             pluginsContainer.appendChild(
                 card
             );
@@ -875,14 +928,275 @@ function renderPlugins() {
     );
 }
 
-async function installPlugin(
-    plugin
-) {
+function editPlugin(plugin) {
+    if (!currentUser) {
+        showToast(
+            "Faça login primeiro."
+        );
+        return;
+    }
+
+    const isOwner =
+        plugin.owner_id ===
+        currentUser.id;
+
+    if (
+        !isOwner &&
+        !currentAdmin
+    ) {
+        showToast(
+            "Você não pode editar este plugin."
+        );
+        return;
+    }
+
+    editingPlugin = plugin;
+
+    document.getElementById(
+        "pluginName"
+    ).value =
+        plugin.name || "";
+
+    document.getElementById(
+        "pluginDescription"
+    ).value =
+        plugin.description || "";
+
+    document.getElementById(
+        "pluginVersion"
+    ).value =
+        plugin.version || "1.0.0";
+
+    document.getElementById(
+        "pluginFile"
+    ).value = "";
+
+    submitButton.textContent =
+        "Salvar alterações";
+
+    publishModal.classList.remove(
+        "hidden"
+    );
+}
+
+async function updatePlugin(plugin) {
+    if (!currentUser) {
+        throw new Error(
+            "Você precisa estar logado."
+        );
+    }
+
+    const isOwner =
+        plugin.owner_id ===
+        currentUser.id;
+
+    if (
+        !isOwner &&
+        !currentAdmin
+    ) {
+        throw new Error(
+            "Você não pode editar este plugin."
+        );
+    }
+
+    const name =
+        document.getElementById(
+            "pluginName"
+        ).value.trim();
+
+    const description =
+        document.getElementById(
+            "pluginDescription"
+        ).value.trim();
+
+    const version =
+        document.getElementById(
+            "pluginVersion"
+        ).value.trim();
+
+    const fileInput =
+        document.getElementById(
+            "pluginFile"
+        );
+
+    const newFile =
+        fileInput.files[0];
+
+    const changes = {
+        name: name,
+        description: description,
+        version: version
+    };
+
+    let newPath = null;
+
+    if (newFile) {
+        if (
+            !newFile.name
+                .toLowerCase()
+                .endsWith(".js")
+        ) {
+            throw new Error(
+                "O arquivo precisa ser JavaScript."
+            );
+        }
+
+        if (
+            newFile.size >
+            1024 * 1024
+        ) {
+            throw new Error(
+                "O plugin não pode ter mais de 1 MB."
+            );
+        }
+
+        const safeFileName =
+            newFile.name
+                .replace(
+                    /[^a-zA-Z0-9._-]/g,
+                    "_"
+                )
+                .replace(
+                    /\.{2,}/g,
+                    "."
+                );
+
+        newPath =
+            plugin.owner_id +
+            "/" +
+            crypto.randomUUID() +
+            "/" +
+            Date.now() +
+            "-" +
+            safeFileName;
+
+        const uploadResponse =
+            await fetch(
+                STORAGE_URL +
+                "/object/plugins/" +
+                newPath,
+                {
+                    method: "POST",
+                    headers: {
+                        "apikey":
+                            SUPABASE_KEY,
+                        "Authorization":
+                            "Bearer " +
+                            currentSession
+                                .access_token,
+                        "Content-Type":
+                            newFile.type ||
+                            "application/javascript",
+                        "x-upsert":
+                            "false"
+                    },
+                    body:
+                        newFile
+                }
+            );
+
+        if (!uploadResponse.ok) {
+            const text =
+                await uploadResponse.text();
+
+            throw new Error(
+                text ||
+                "Não foi possível enviar o novo arquivo."
+            );
+        }
+
+        changes.file_path =
+            newPath;
+
+        changes.file_name =
+            newFile.name;
+    }
+
+    const response =
+        await fetch(
+            REST_URL +
+            "/plugins?id=eq." +
+            encodeURIComponent(
+                plugin.id
+            ),
+            {
+                method: "PATCH",
+                headers: {
+                    ...authHeaders(),
+                    "Prefer":
+                        "return=representation"
+                },
+                body:
+                    JSON.stringify(
+                        changes
+                    )
+            }
+        );
+
+    if (!response.ok) {
+        if (newPath) {
+            try {
+                await fetch(
+                    STORAGE_URL +
+                    "/object/plugins",
+                    {
+                        method:
+                            "DELETE",
+                        headers:
+                            authHeaders(),
+                        body:
+                            JSON.stringify({
+                                prefixes: [
+                                    newPath
+                                ]
+                            })
+                    }
+                );
+            } catch {
+            }
+        }
+
+        const text =
+            await response.text();
+
+        throw new Error(
+            text ||
+            "Não foi possível atualizar o plugin."
+        );
+    }
+
+    if (
+        newPath &&
+        plugin.file_path &&
+        plugin.file_path !== newPath
+    ) {
+        try {
+            await fetch(
+                STORAGE_URL +
+                "/object/plugins",
+                {
+                    method:
+                        "DELETE",
+                    headers:
+                        authHeaders(),
+                    body:
+                        JSON.stringify({
+                            prefixes: [
+                                plugin.file_path
+                            ]
+                        })
+                }
+            );
+        } catch {
+        }
+    }
+}
+
+async function installPlugin(plugin) {
     if (!plugin.file_path) {
         showToast(
             "Arquivo do plugin não encontrado."
         );
-
         return;
     }
 
@@ -949,9 +1263,7 @@ async function installPlugin(
     }
 }
 
-async function increaseDownloads(
-    plugin
-) {
+async function increaseDownloads(plugin) {
     if (!plugin.id) {
         return;
     }
@@ -983,20 +1295,17 @@ async function increaseDownloads(
     }
 }
 
-async function deletePlugin(
-    plugin
-) {
+async function deletePlugin(plugin) {
     if (!currentUser) {
         showToast(
             "Faça login primeiro."
         );
-
         return;
     }
 
     const isOwner =
-        currentUser.id ===
-        plugin.owner_id;
+        plugin.owner_id ===
+        currentUser.id;
 
     if (
         !isOwner &&
@@ -1005,7 +1314,6 @@ async function deletePlugin(
         showToast(
             "Você não pode excluir este plugin."
         );
-
         return;
     }
 
@@ -1028,9 +1336,7 @@ async function deletePlugin(
             "Excluindo plugin..."
         );
 
-        if (
-            plugin.file_path
-        ) {
+        if (plugin.file_path) {
             const storageResponse =
                 await fetch(
                     STORAGE_URL +
@@ -1076,7 +1382,11 @@ async function deletePlugin(
             );
 
         if (!response.ok) {
+            const text =
+                await response.text();
+
             throw new Error(
+                text ||
                 "Não foi possível excluir o plugin."
             );
         }
@@ -1114,6 +1424,39 @@ pluginForm.onsubmit =
             showToast(
                 "Faça login para publicar."
             );
+            return;
+        }
+
+        if (editingPlugin) {
+            submitButton.disabled =
+                true;
+
+            submitButton.textContent =
+                "Salvando...";
+
+            try {
+                await updatePlugin(
+                    editingPlugin
+                );
+
+                window.closePublishModal();
+
+                await loadPlugins();
+
+                showToast(
+                    "Plugin atualizado."
+                );
+            } catch (error) {
+                showToast(
+                    error.message
+                );
+            } finally {
+                submitButton.disabled =
+                    false;
+
+                submitButton.textContent =
+                    "Publicar";
+            }
 
             return;
         }
@@ -1141,11 +1484,17 @@ pluginForm.onsubmit =
         const file =
             fileInput.files[0];
 
+        if (!name) {
+            showToast(
+                "Digite o nome do plugin."
+            );
+            return;
+        }
+
         if (!file) {
             showToast(
                 "Selecione um arquivo .js."
             );
-
             return;
         }
 
@@ -1157,7 +1506,6 @@ pluginForm.onsubmit =
             showToast(
                 "O arquivo precisa ser JavaScript."
             );
-
             return;
         }
 
@@ -1168,7 +1516,6 @@ pluginForm.onsubmit =
             showToast(
                 "O plugin não pode ter mais de 1 MB."
             );
-
             return;
         }
 
@@ -1227,12 +1574,9 @@ pluginForm.onsubmit =
                     }
                 );
 
-            if (
-                !uploadResponse.ok
-            ) {
+            if (!uploadResponse.ok) {
                 const text =
-                    await uploadResponse
-                        .text();
+                    await uploadResponse.text();
 
                 throw new Error(
                     text ||
@@ -1276,12 +1620,9 @@ pluginForm.onsubmit =
                     }
                 );
 
-            if (
-                !insertResponse.ok
-            ) {
+            if (!insertResponse.ok) {
                 const text =
-                    await insertResponse
-                        .text();
+                    await insertResponse.text();
 
                 throw new Error(
                     text ||
@@ -1333,10 +1674,9 @@ pluginForm.onsubmit =
         }
     };
 
-searchInput.oninput =
-    function () {
-        renderPlugins();
-    };
+searchInput.oninput = function () {
+    renderPlugins();
+};
 
 function escapeHTML(value) {
     return String(value)
