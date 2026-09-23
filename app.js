@@ -814,8 +814,6 @@ function renderPlugins() {
                 "</p>" +
 
                 "<div class=\"pluginOwner\">" +
-                    "Publicado por " +
-                    owner +
                 "</div>" +
 
                 "<button " +
