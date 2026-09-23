@@ -6,12 +6,13 @@
     <title>System Silence Plugin Store</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
 <header>
     <div class="logo">SS</div>
 
-    <div>
+    <div class="brand">
         <h1>System Silence</h1>
         <span>Plugin Store</span>
     </div>
@@ -19,11 +20,19 @@
     <div class="account">
         <span id="userEmail"></span>
 
-        <button id="loginButton" type="button">
+        <button
+            id="loginButton"
+            type="button"
+            onclick="openLoginModal()"
+        >
             Login
         </button>
 
-        <button id="logoutButton" type="button" class="hidden">
+        <button
+            id="logoutButton"
+            type="button"
+            class="hidden"
+        >
             Sair
         </button>
     </div>
@@ -31,54 +40,66 @@
 
 <main>
 
-<section class="hero">
-    <h2>Plugins da comunidade</h2>
+    <section class="hero">
+        <h2>Plugins da comunidade</h2>
 
-    <p>
-        Publique e instale plugins para o System Silence.
-    </p>
+        <p>
+            Publique e instale plugins para o System Silence.
+        </p>
 
-    <button id="publishButton" type="button">
-        + Publicar plugin
-    </button>
-</section>
+        <button
+            id="publishButton"
+            type="button"
+        >
+            + Publicar plugin
+        </button>
+    </section>
 
-<section class="search">
-    <input
-        id="search"
-        type="search"
-        placeholder="Pesquisar plugins..."
-        autocomplete="off"
-    >
-</section>
+    <section class="search">
+        <input
+            id="search"
+            type="search"
+            placeholder="Pesquisar plugins..."
+            autocomplete="off"
+        >
+    </section>
 
-<section>
-    <div class="titleRow">
-        <h2>Plugins</h2>
-        <span id="count">0 plugins</span>
-    </div>
+    <section>
 
-    <div id="plugins" class="plugins">
-        <div class="loading">
-            Carregando plugins...
+        <div class="titleRow">
+            <h2>Plugins</h2>
+            <span id="count">0 plugins</span>
         </div>
-    </div>
-</section>
+
+        <div id="plugins" class="plugins">
+            <div class="loading">
+                Carregando plugins...
+            </div>
+        </div>
+
+    </section>
 
 </main>
 
-<div id="loginModal" class="modal hidden">
+<div
+    id="loginModal"
+    class="modal hidden"
+>
+
     <div class="modalBox">
 
         <button
             id="closeLogin"
             class="close"
             type="button"
+            onclick="closeLoginModal()"
         >
             ×
         </button>
 
-        <h2 id="authTitle">Login</h2>
+        <h2 id="authTitle">
+            Login
+        </h2>
 
         <form id="authForm">
 
@@ -124,20 +145,28 @@
         </button>
 
     </div>
+
 </div>
 
-<div id="publishModal" class="modal hidden">
+<div
+    id="publishModal"
+    class="modal hidden"
+>
+
     <div class="modalBox">
 
         <button
             id="closeModal"
             class="close"
             type="button"
+            onclick="closePublishModal()"
         >
             ×
         </button>
 
-        <h2>Publicar plugin</h2>
+        <h2>
+            Publicar plugin
+        </h2>
 
         <form id="pluginForm">
 
@@ -195,6 +224,7 @@
         </form>
 
     </div>
+
 </div>
 
 <div id="toast"></div>
